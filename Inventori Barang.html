@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ShanuMart</title>
+<style>
+  :root{--bg:#f6f8fb;--card:#fff;--accent:#0b84ff;--muted:#667;--danger:#ff4d4f}
+  *{box-sizing:border-box}
+  body{font-family:Inter,system-ui,Roboto,Arial;margin:0;background:var(--bg);color:#111}
+  .wrap{max-width:1100px;margin:20px auto;padding:16px}
+  .card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 8px 20px rgba(20,20,50,0.06)}
+  header{display:flex;justify-content:space-between;align-items:center}
+  h1{margin:0;font-size:18px}
+  .small{font-size:13px;color:var(--muted)}
+  .splash{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  .cat{padding:18px;border-radius:10px;text-align:center;cursor:pointer;border:1px solid rgba(0,0,0,0.04)}
+  .controls{display:flex;gap:10px;align-items:center;margin-top:12px}
+  input,select{padding:10px;border-radius:8px;border:1px solid #e8ecf8;font-size:14px}
+  input[readonly]{background:#fafbfd}
+  button{background:var(--accent);color:#fff;border:0;padding:9px 12px;border-radius:8px;cursor:pointer}
+  button.ghost{background:transparent;color:var(--accent);border:1px solid rgba(11,132,255,0.12)}
+  .list{position:absolute;left:0;right:0;background:#fff;border:1px solid #eee;border-radius:8px;margin-top:6px;max-height:220px;overflow:auto;z-index:20}
+  .list div{padding:8px 10px;border-bottom:1px solid #f4f6fb;cursor:pointer}
+  .list div:hover{background:#f4f8ff}
+  table{width:100%;border-collapse:collapse;margin-top:12px}
+  th,td{padding:8px;border-bottom:1px solid #f0f2f7;text-align:left;font-size:14px}
+  th{background:#fbfcff}
+  .filters{display:flex;gap:6px;align-items:center}
+  .filter-btn{padding:8px 10px;border-radius:8px;border:1px solid #eee;background:#fff;cursor:pointer}
+  .filter-btn.active{border-color:var(--accent);box-shadow:0 8px 18px rgba(11,132,255,0.06)}
+  .summary{display:flex;gap:12px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .summary .item{background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #eee;font-weight:700}
+  .new-badge{display:inline-block;background:#e6f4ff;color:var(--accent);padding:4px 8px;border-radius:8px;font-weight:700;font-size:12px;margin-left:8px}
+  .small-note{font-size:12px;color:var(--muted);margin-top:8px}
+  @media(max-width:900px){.splash{grid-template-columns:1fr}.controls{flex-direction:column;align-items:stretch}}
+  /* small form for new item */
+  .new-form{display:none;padding:10px;border:1px dashed #e6eefc;border-radius:8px;background:#fbfdff;margin-top:8px}
+  .new-form input{width:120px;margin-right:8px}
+  .new-table{margin-top:12px}
+  .reset-row{display:flex;justify-content:flex-end;margin-top:12px}
+  .btn-danger{background:var(--danger);border:0;color:#fff}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="intro">
+      <header>
+        <div><h1>Selamat Datang Di Cek Stock Barang</h1><div class="small">Pilih kategori untuk mulai</div></div>
+        <div class="small">Tanggal: <span id="introDate"></span></div>
+      </header>
+      <div class="splash">
+        <div class="cat" id="catR"> <h2>Rokok</h2><div class="small">Data pra-muat</div></div>
+        <div class="cat" id="catS"> <h2>Sembako</h2><div class="small">Data pra-muat</div></div>
+      </div>
+    </div>
+
+    <div class="card" id="app" style="margin-top:14px;display:none">
+      <header style="display:flex;justify-content:space-between;align-items:center">
+        <div><h1 id="title">ShanuMart</h1><div class="small">Kategori: <span id="catName"></span> • Tanggal: <span id="opDate"></span></div></div>
+        <div><button id="back" class="ghost">Pilih Kategori</button></div>
+      </header>
+
+      <div class="controls">
+        <div style="flex:1;position:relative">
+          <label class="small">Cari barang</label>
+          <input id="search" type="text" placeholder="Ketik nama barang..." autocomplete="off" />
+          <div id="suggest" class="list" style="display:none"></div>
+
+          <!-- small inline form for adding new item when not found -->
+          <div id="newForm" class="new-form">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <div class="small">Barang baru: <strong id="newName"></strong></div>
+              <div><label class="small">Harga</label><input id="newPrice" type="number" placeholder="0" /></div>
+              <div><label class="small">Stok Baru</label><input id="newStock" type="number" placeholder="0" /></div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <button id="addNew">Tambah Baru</button>
+                <button id="cancelNew" class="ghost">Batal</button>
+              </div>
+            </div>
+            <div class="small-note">Catatan: barang baru akan disimpan permanen ke data kategori aktif dan muncul di tabel "Barang Baru".</div>
+          </div>
+
+        </div>
+        <div style="width:120px"><label class="small">Stok Awal</label><input id="sys" type="number" readonly /></div>
+        <div style="width:140px"><label class="small">Harga</label><input id="price" type="number" readonly /></div>
+        <div style="width:120px"><label class="small">Stok Fisik</label><input id="phys" type="number" inputmode="numeric" pattern="[0-9]*" /></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="add">Tambah</button>
+          <div class="filters" style="margin-left:6px">
+            <button id="fAll" class="filter-btn active">Semua</button>
+            <button id="fMinus" class="filter-btn">Minus</button>
+            <button id="fPlus" class="filter-btn">Plus</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:10px" class="small">Petunjuk: Ketik barangnya → otomatis fokus ke Stok Fisik → ketik jumlah → tekan Enter untuk simpan.
+      
+Barang yg belum muncul saat ketik, akan masuk sebagai barang baru, isi stock dan harga → klik (Tambah Baru)</div>
+
+      <table id="tbl">
+        <thead>
+          <tr><th>#</th><th>Nama</th><th>Stok Sistem</th><th>Stok Fisik</th><th>Selisih</th><th>Total Selisih (Rp)</th><th>Harga</th><th>Total Stok (Rp)</th><th>Aksi</th></tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+
+      <div class="summary">
+        <div class="item">Total Plus: Rp <span id="totalMore">0</span></div>
+        <div class="item">Total Minus: Rp <span id="totalLess">0</span></div>
+        <div class="item">Grand Selisih: Rp <span id="grandTotal">0</span></div>
+      </div>
+
+      <!-- New items table -->
+      <div class="card new-table" style="margin-top:14px">
+        <header style="display:flex;justify-content:space-between;align-items:center">
+          <div><h1 style="font-size:16px">Barang Baru <span class="new-badge">Baru</span></h1><div class="small">Produk yang baru ditambahkan saat opname</div></div>
+          <div><div class="small">Total Baru: Rp <strong id="totalNewAll">0</strong></div></div>
+        </header>
+        <table id="tblNew">
+          <thead>
+            <tr><th>#</th><th>Nama</th><th>Stok Baru</th><th>Harga</th><th>Total (Rp)</th><th>Aksi</th></tr>
+          </thead>
+          <tbody id="tbodyNew"></tbody>
+        </table>
+
+        <div class="reset-row">
+          <button id="resetAll" class="btn-danger">Reset Semua Data</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+// --- data storage keys ---
+const KEY = {
+  rokok: 'shanu_rokok',
+  rokokPrices: 'shanu_rokok_prices',
+  sembako: 'shanu_sembako',
+  sembakoPrices: 'shanu_sembako_prices',
+  opname: 'shanu_opname',
+  newItems: 'shanu_newitems'
+};
+
+// --- initial seed data (will be used if localStorage empty)
+const SEED_ROKOK = {
+  'Marlboro Campur':7,'Marlong 20':4,'Marlong 12':10,'Magnum Filter':8,'Magnum Bintang':9,'Twizz 16':12,'Twizz 12':7,
+'Mild 12':10,'Mild 16':12,'Mild Menthol':2,'Mild Splash':7,'Samtek Prima':3,'Samtek':12,'Jump Coffee':3,
+'Samsoe 12':12,'Samsoe Refil':10,'Samsue Revil 16':5,'Selera Hijau':9,'Selera Kuning':8,'Martek Merah':5,
+'Martek Biru':3,'Surya 16':5,'Pro Merah':3,'Surya 12':9,'Filter':8,'Signature':9,'GG Merah':5,'Super 12':8,
+'Ziga':5,'Super Expresso':3,'La Bold 20':3,'La Bold 16':3,'La Campur':8,'76 Mangga & Nanas':8,'76 Kurma':7,
+'Djarum 76':0,'Djarum Coklat':10,'Coklat Extra':6,'Envio Kretek Campur':6,'Sergio':4,'Sejuk Alami Coklat':12,
+'Avolution':4,'Lucky Strike':10,'Country':4,'Magnum Maxx 20':9,'Magnum Maxx 12':8,'Aroma Slim Campur':10,
+'Aroma Mile':8,'Aroma Bold 16':9,'Aroma Bold 12':10,'Armour 20':2,'Dunhill Hitam 16':3,'Dunhill Putih 16':5,
+'Evo':5,'Neslite Campur':22,'Armour Kretek':9,'GG Delux 12':5,'Harumanis 20':5,'Harumania 12':6,'Harumanis Kopi':2,
+'Win Bold':3,'Win Filter':4,'Win Click':4,'Esse Berry Pop':4,'Esse Double Pop':1,'Esse Change':5,'Esse Juicy':5,
+'Esse Double Change':5,'Camel Ungu 16':7,'Camel Ungu 12':11,'Camel Biru':8,'Camel 20 Campur':2,'Camel 20 Canpur Long':6,
+'Juara Jambu':8,'Juara Teh':4,'Juara Filter':2,'On Bold 20':4,'On Bold 16':3,'Envio Mild Campur':7,'Sampoerna Legit':2,
+'Lato Besar':11,'Aspro':5,'Vokal Jingga':4,'Super Expresso Gold':3,'Class Mild':4,'Saroja':8,'Juara Click Manggo':5,
+'Rokok 13.000':5,'ktsurya/filter':0,'ktmild':7,'ktsuper':11,'ktmarlong':0,'ktsignature':0,'ktjambu mangga':12,
+'ktmagnum':5,'ktsamsu':5,'ktsamtek':5,'ktprima':0,'ktinter kretek':0,'ktrefil':5,'ktmagnum kretek':7,
+'kttwizz':11,'ktzetta':0,'ktrokok 1000':0,'ktlato kcil':0
+};
+const SEED_ROKOK_PRICES = {
+  'Marlboro Campur':47600,'Marlong 20':37900,'Marlong 12':23000,'Magnum Filter':25200,'Magnum Bintang':23200,'Twizz 16':23500,
+'Twizz 12':17600,'Mild 12':24400,'Mild 16':33700,'Mild Menthol':33700,'Mild Splash':29200,'Samtek Prima':14800,'Samtek':14700,
+'Jump Coffee':20100,'Samsoe 12':19000,'Samsoe Refil':20500,'Samsue Revil 16':25000,'Selera Hijau':8900,'Selera Kuning':8900,
+'Martek Merah':11150,'Martek Biru':10450,'Surya 16':33800,'Pro Merah':29200,'Surya 12':24300,'Filter':24400,'Signature':23400,
+'GG Merah':14800,'Super 12':23000,'Ziga':15900,'Super Expresso':16100,'La Bold 20':36700,'La Bold 16':27700,'La Campur':31700,
+'76 Mangga & Nanas':13700,'76 Kurma':14700,'Djarum 76':14700,'Djarum Coklat':15600,'Coklat Extra':14600,'Envio Kretek Campur':11400,
+'Sergio':24000,'Sejuk Alami Coklat':8200,'Avolution':40000,'Lucky Strike':28400,'Country':26200,'Magnum Maxx 20':27400,
+'Magnum Maxx 12':17400,'Aroma Slim Campur':13800,'Aroma Mile':20900,'Aroma Bold 16':20900,'Aroma Bold 12':15800,'Armour 20':25100,
+'Dunhill Hitam 16':27300,'Dunhill Putih 16':27300,'Evo':22850,'Neslite Campur':20400,'Armour Kretek':10500,'GG Delux 12':14700,
+'Harumanis 20':12000,'Harumania 12':8100,'Harumanis Kopi':8100,'Win Bold':27000,'Win Filter':27000,'Win Click':28200,
+'Esse Berry Pop':32500,'Esse Double Pop':34500,'Esse Change':39500,'Esse Juicy':39600,'Esse Double Change':41500,
+'Camel Ungu 16':25100,'Camel Ungu 12':18700,'Camel Biru':22200,'Camel 20 Campur':27500,'Camel 20 Canpur Long':28500,
+'Juara Jambu':13500,'Juara Teh':13500,'Juara Filter':23500,'On Bold 20':26000,'On Bold 16':20500,'Envio Mild Campur':23100,
+'Sampoerna Legit':13500,'Lato Besar':15500,'Aspro':24500,'Vokal Jingga':7600,'Super Expresso Gold':17600,'Class Mild':28300,
+'Saroja':9600,'Juara Click Manggo':23500,'Rokok 13.000':10000,'ktsurya/filter':2033,'ktmild':2033,'ktsuper':1917,'ktmarlong':1917,
+'ktsignature':1917,'ktjambu mangga':1125,'ktmagnum':1917,'ktsamsu':1584,'ktsamtek':1208,'ktprima':1217,'ktinter kretek':1358,
+'ktrefil':1709,'ktmagnum kretek':1367,'kttwizz':1468.75,'ktzetta':1834,'ktrokok 1000':900,'ktlato kcil':1050
+};
+const SEED_SEMBAKO = {
+  'King Kong':5,'Lilin':9,'Baterai Jam':4,'Baterai Remot':11,'Isolasi Putih K':17,'Isolasi Hitam K':10,'Lakban B':11,
+'Lampu 20 Watt':3,'Lampu 10 Watt':8,'Lampu 5 Watt':5,'Remi Garda':10,'Domino':13,'Korek Criket':10,'Korek Biasa':76,
+'Korek Kayu':28,'Paseo K':21,'Paseo T':1,'Jolly B':12,'Komix Dewasa':80,'Komix Anak':28,'Tolak Angin':3,'Tolak Angin Anak':24,
+'Antimo Anak':17,'Entrostop Anak':8,'Antangin':7,'Bejo':15,'Madurasa/TJ':13,'GPU K':4,'Tolak Linu':1,'Extrajoss':22,
+'Kukubima':48,'Tisu Gatsby':11,'Amplop':300,'MBK Putih':7,'MBK Silver':3,'Nuteijell Coklat':4,'Agar Agar':13,
+'Sariwangi Kotak':5,'Teh Celup Sosro Kotak':4,'Teh Botol Kotak':1,'Teh Bendera Kotak':1,'Teh Bubuk K':2,'Bedak Heroxyn':3,
+'Bedak My Baby':1,'Bedak Caladin':3,'Lem Korea':10,'Betadin':4,'Balsem Lang B':5,'Fresh Care':13,'Insto':2,'Cap Kapak K':4,
+'Kayu Putih T':13,'Kayu Putih K':14,'Marina':5,'Pulpen 4000':8,'Lem Kertas Poles':14,'Isi Staples':18,'Spidol B':7,'Spidol K':19,
+'Pulpen 2000':42,'Pensil':17,'Serutan':11,'Buku Gambar':10,'Buku Tebal':5,'Buku 4000':11,'Cotton Bud':52,'Kapur Ajaib':8,
+'Sikat Cuci':14,'Bayclin Botol T':2,'Pepsoden B':6,'Pepsoden K':12,'Ciptadent':2,'Shin Zui':2,'Life Buoy':3,'Dettol B':1,'Nuvo':6,
+'Giv':2,'Closup':6,'Dettol K':1,'sari kacang hijau':7,'teh kotak':18,'hydro coco k':14,'ultra 200ml':39,'ultra 125ml':17,
+'indomilk kids':40,'cymori kotak b':7,'good day botol':9,'golda':22,'milku':35,'abc botol':0,'lemineral t':48,'vit t':96,
+'gunung t':0,'aqua t':96,'aqua b':12,'vit b':12,'minuman 2000':120,'minuman 1000':456,'gunting b':7,'gula merah':2,'gula pasir':3,
+'terigu curah':7,'tp beras':5,'sagu':1,'vola/air gelas':336,'kertas nasi':0,'telur':148,'bango 10':3,'bango 3000':32,'sedaap t':19,
+'sedaap 2000':0,'rinso 5000':4,'rapika refil':2,'kissprey refil':2,'wipol 5000':5,'sunligh 10.000':0,'sunligh 5000':0,'sunligh 2000':57,
+'mama lemon 4000':23,'mama lemon 2000':18,'nuvo cair':4,'giv cair':7,'lifebuoy cair':5,'shin zui cair':0,'lux cair':3,'soklin lantai k':26,
+'kertas kado':12,'beras 12.000':6,'beras 11.000':1,'sendal cewe':1,'sendal hitam':4,'sendal putih':12,'masker':37,'jajanan 500':109,
+'jajanan 1000':77,'jajajana 2000':29,'jajajan 2500':3,'cup kopi':4,'jas hujan':3,'pertalite 18.000':0,'pertalite 12.000':9,'gas isi':15,
+'aqua galon':3,'lemineral galon':3,'isi ulang':6,'galon kosong':3,'celengan k':8,'tali rafia b':16,'tali rafia k':48,'permen 1000/4':429,
+'permen 1000/3':0,'permen 1000':15,'permen stik':9,'roma kelapa':2,'roma malkis':8,'nissin 8000':2,'better 8.500':4,'kiranti':7,
+'mie sukses isi 2':6,'pocari klg':20,'adem sari klg':11,'larutan klg':23,'bintang zero':10,'root beer':22,'green sand':30,'tebs':4,'zoda':17,
+'kratingdaeng':2,'you c 1000':6,'bear brand':11,'tujuh kurma':6,'larutan botol b':6,'larutan botol k':3,'pocari botol b':13,'pocari botol k':0,
+'isoplus':18,'orange water':18,'teh botol':10,'floridina':14,'teh pucuk':103,'nipis madu':7,'nutriboos':9,'mizon':2,'sprite cola fanta':35,
+'fruitea':28,'stee':27,'jazz 1':54,'rinso bubuk':67,'daia':38,'kantong hitam b':14,'kantong hitam t':10,'kantong hitam k':8,'kantong putih b':15,
+'kantong putih k':13,'plastik pe b':13,'plastik pe t':18,'plastik pe k':15,'sarimi goreng':0,'sarimi kuah':10,'indomie goreng':126,
+'indomie kari':38,'indomie kuah':73,'sakura':39,'mie telor':8,'bihun jagung b':8,'bihun jagung k':5,'pop mie':4,'pop mie goreng':2,
+'soun naga k':16,'sun kara':15,'sasa 100 gr':7,'sasa 1000':4,'sasa 500':10,'sodium':10,'sitrun':12,'panili':24,'terasi abc':14,
+'blueband 2500':12,'filma':5,'maya b':2,'maya k':5,'sarden abc b':0,'sarden abc k':1,'garam':27,'cuka':9,'minyak 2ltr':1,'minyak 1ltr':5,
+'minyak 500 ml':6,'minyak gelas':43,'ekonomi 5000':2,'ekonomi 2000':5,'susu kaleng putih':2,'susu kaleng coklat':2,'spon mandi':10,
+'kerokan jenggot 7000':17,'kerokan jenggot 5000':21,'lem power':4,'sikat gigi':14,'kapas':12,'charm kotak':5,'lourie kotak':2,'hansaplas':200,
+'kasa kawat b':11,'kasa kawat k':5,'spon cuci bagus':8,'karet gelang':14,'kater':10,'adem sari':7,'vegeta':11,'bumbu dapur 1000':104,
+'tambang k':8,'tali nilon':8,'saos botol':4,'masako':54,'royco':34,'ladaku':18,'saori':48,'lem power 4000':7,'salep kulit badak':6,
+'champion':10,'dancow':12,'anlene':11,'milo':33,'cerelac':12,'energen':43,'top aren':6,'teh tarik':20,'creamy latte':20,'good day capcin':18,
+'torabika capcin':20,'good day moca':70,'indocaffe':53,'luwak white':19,'teh sosro':14,'teh botol sst':20,'teh bendera':23,'teh sariwangi':7,
+'kapal api 60gr':5,'abc susu':18,'kapal api mix':144,'kapal api susu':17,'kapal api mini':17,'susu saset':126,'chocolatos':28,'drink beng beng':8,
+'kapal api 160 gr':1,'bango saset':28,'racik':77,'tepung sasa':15,'tepung kobe':25,'charm 500':16,'charm malam':3,'charm isi 2':11,
+'mamy poko s/m/l':34,'mamy pokok xl/xxl':41,'teh tebu':15,'soklin liquid':174,'soklin pewangi':54,'rinso cair':53,'gentel gen':40,'so soft':15,
+'molto':25,'downy':32,'shampo 1000':150,'shampo 500':57,'kit shampo':15,'kit poles':7,'biosol':46,'proclin':24,'vanish':5,'harvic':4,
+'supersol':12,'wipol':16,'citra saset':38,'soffel 500':83,'soffel 1000':17,'kispray':71,'rapika saset':10,'gataby rambut':44,'soklin lantai 500':48,
+'fair lovely cream':10,'fair lovely':8,'rexona':30,'tea jus':36,'nutrisari':73,'super bubur':20,'anget sari':8,'amh':8,'mie gelas':64,
+'ketumbar bubuk':19,'kunyit bubuk':18,'saos saset':12,'bon cabe':29,'sambal uleg':19,'sambal abc':20,
+'nutriboosk':4,'good day botolk':4,'goldak':6,'abck':4,'milkuk':16,'teh kotakk':4,'mizonek':2,'pocari bk':3,'pocari kk':0,'orange waterk':3,
+'sprite cola fantak':8,'fruiteak':1,'nipis maduk':1,'floridinak':1,'isoplusk':1,'steak':5,'pucukk':16,'teh botolk':4,'aqua tk':6,'vit tk':5,
+'lemineral tk':0,'sanqua tk':0,'aqua bk':2,'vit bk':6,'lemiral bk':1,'yakult':13,'cymori':0,'susu kedelai':2,'pocari klgk':5,'larutan klgk':7,
+'adem sari klgk':2,'bintang zerok':3,'root beenrk':5,'tebsk':5,'cincau pandak':5,'greensandk':3,'zodak':5,'bearbrandk':5,'tujuh kurmak':5,
+'you c 1000k':6,'kratingdaengk':5,'larutan anakk':2,'cumory botol':0,'cymori kotak':4,'ultra 200k':8,'ultra 125k':7,'indomilk kidsk':8,
+'frisiaan flag kk':7,'hydro coco kk':4,'sari kacang hijauk':4,'minuman 2000k':50,'minuman 1000k':44,'minuman 500k':99,'puyer 16':7,
+'taipinsan':5,'anak sumang':14,'bodrexin':48,'napacin':17,'mixagrip':41,'oskadom':12,'antimo':14,'procol':11,'ultra flu':3,'mextril':5,
+'konidin':17,'neozep':12,'bodrex biasa':30,'bodrex panjang':42,'inza':6,'pilkita':6,'paramex':28,'decolgen':12,'inzana':95,'promag':57,
+'diapet':17,'remacyl':20,'panadol hijau':10,'panadol merah':5,'panadol biru':11,'entrostop':38,'parasetamol':5,'milanta tablet':17,'ponstan':11,
+'super tetra':4,'fatigon merah':8,'ctm':11,'salonpas':24,'koyo cabe':170,'mainan 2000':60,'kerupuk 1000':90,'kerupuk 2000':91,'kerupuk 5000':5,
+'roti 2000':18,'roti 3000':7,'minyak wangi':12
+};
+const SEED_SEMBAKO_PRICES = {
+  'King Kong':5200,'Lilin':1375,'Baterai Jam':2292,'Baterai Remot':2417,'Isolasi Putih K':600,'Isolasi Hitam K':900,'Lakban B':6000,
+'Lampu 20 Watt':13000,'Lampu 10 Watt':8000,'Lampu 5 Watt':5000,'Remi Garda':4833,'Domino':1600,'Korek Criket':2400,'Korek Biasa':1000,
+'Korek Kayu':450,'Paseo K':833,'Paseo T':2100,'Jolly B':6875,'Komix Dewasa':1417,'Komix Anak':1000,'Tolak Angin':3500,
+'Tolak Angin Anak':2000,'Antimo Anak':1400,'Entrostop Anak':2500,'Antangin':3333,'Bejo':2375,'Madurasa/TJ':833,'GPU K':8500,
+'Tolak Linu':2167,'Extrajoss':1125,'Kukubima':1000,'Tisu Gatsby':1000,'Amplop':130,'MBK Putih':1875,'MBK Silver':2667,
+'Nuteijell Coklat':1833,'Agar Agar':4333,'Sariwangi Kotak':5000,'Teh Celup Sosro Kotak':6000,'Teh Botol Kotak':6500,
+'Teh Bendera Kotak':5000,'Teh Bubuk K':5000,'Bedak Heroxyn':11500,'Bedak My Baby':4000,'Bedak Caladin':11500,'Lem Korea':3500,
+'Betadin':5417,'Balsem Lang B':8500,'Fresh Care':11000,'Insto':14500,'Cap Kapak K':6500,'Kayu Putih T':5700,'Kayu Putih K':10500,
+'Marina':5000,'Pulpen 4000':3500,'Lem Kertas Poles':2500,'Isi Staples':1500,'Spidol B':3500,'Spidol K':1000,'Pulpen 2000':1500,
+'Pensil':1500,'Serutan':1000,'Buku Gambar':3000,'Buku Tebal':8000,'Buku 4000':3000,'Cotton Bud':800,'Kapur Ajaib':3667,
+'Sikat Cuci':4000,'Bayclin Botol T':5500,'Pepsoden B':11500,'Pepsoden K':4500,'Ciptadent':3500,'Shin Zui':4300,'Life Buoy':3500,
+'Dettol B':4500,'Nuvo':2200,'Giv':2200,'Closup':6500,'Dettol K':3500,'sari kacang hijau':3958,'teh kotak':3125,'hydro coco k':5333,
+'ultra 200ml':4375,'ultra 125ml':2750,'indomilk kids':2450,'cymori kotak b':5500,'good day botol':5000,'golda':2750,'milku':2750,
+'abc botol':3125,'lemineral t':1875,'vit t':1417,'gunung t':0,'aqua t':1875,'aqua b':4167,'vit b':2917,'minuman 2000':1417,
+'minuman 1000':792,'gunting b':8000,'gula merah':15500,'gula pasir':17500,'terigu curah':7200,'tp beras':7500,'sagu':11000,
+'vola/air gelas':271,'kertas nasi':22000,'telur':1583,'bango 10':9300,'bango 3000':2500,'sedaap t':7500,'sedaap 2000':1700,
+'rinso 5000':4500,'rapika refil':3500,'kissprey refil':6000,'wipol 5000':4500,'sunligh 10.000':8000,'sunligh 5000':4500,
+'sunligh 2000':1700,'mama lemon 4000':3500,'mama lemon 2000':1700,'nuvo cair':2200,'giv cair':2200,'lifebuoy cair':3200,'shin zui cair':0,
+'lux cair':2200,'soklin lantai k':800,'kertas kado':1000,'beras 12.000':11000,'beras 11.000':10000,'sendal cewe':11000,'sendal hitam':11000,
+'sendal putih':11000,'masker':1100,'jajanan 500':400,'jajanan 1000':800,'jajajana 2000':1600,'jajajan 2500':2000,'cup kopi':5500,'jas hujan':8000,
+'pertalite 18.000':15000,'pertalite 12.000':10000,'gas isi':19000,'aqua galon':17500,'lemineral galon':17000,'isi ulang':4000,'galon kosong':0,
+'celengan k':1000,'tali rafia b':7000,'tali rafia k':1000,'permen 1000/4':120,'permen 1000/3':200,'permen 1000':800,'permen stik':2000,
+'roma kelapa':8500,'roma malkis':6000,'nissin 8000':7000,'better 8.500':7000,'kiranti':5000,'mie sukses isi 2':3542,'pocari klg':5300,
+'adem sari klg':6042,'larutan klg':5000,'bintang zero':7000,'root beer':6300,'green sand':6700,'tebs':5000,'zoda':5000,'kratingdaeng':4083,
+'you c 1000':5500,'bear brand':9000,'tujuh kurma':9000,'larutan botol b':6500,'larutan botol k':3161,'pocari botol b':6000,'pocari botol k':5500,
+'isoplus':2417,'orange water':6875,'teh botol':3250,'floridina':2417,'teh pucuk':2458,'nipis madu':3333,'nutriboos':5250,'mizon':3333,
+'sprite cola fanta':3917,'fruitea':3333,'stee':2417,'jazz 1':833,'rinso bubuk':833,'daia':833,'kantong hitam b':3000,'kantong hitam t':3000,
+'kantong hitam k':3000,'kantong putih b':6000,'kantong putih k':6000,'plastik pe b':6200,'plastik pe t':6200,'plastik pe k':6200,
+'sarimi goreng':3542,'sarimi kuah':3333,'indomie goreng':2750,'indomie kari':2825,'indomie kuah':2625,'sakura':1600,'mie telor':4100,
+'bihun jagung b':6500,'bihun jagung k':3700,'pop mie':4300,'pop mie goreng':4700,'soun naga k':2100,'sun kara':2700,'sasa 100 gr':4625,
+'sasa 1000':925,'sasa 500':425,'sodium':4000,'sitrun':2050,'panili':480,'terasi abc':292,'blueband 2500':2000,'filma':5500,
+'maya b':22000,'maya k':9500,'sarden abc b':21000,'sarden abc k':9200,'garam':2125,'cuka':2000,'minyak 2ltr':32000,'minyak 1ltr':16000,
+'minyak 500 ml':9400,'minyak gelas':3600,'ekonomi 5000':4417,'ekonomi 2000':1733,'susu kaleng putih':12000,'susu kaleng coklat':11500,
+'spon mandi':4000,'kerokan jenggot 7000':6000,'kerokan jenggot 5000':4000,'lem power':1000,'sikat gigi':2750,'kapas':5000,'charm kotak':3438,
+'lourie kotak':2750,'hansaplas':280,'kasa kawat b':4000,'kasa kawat k':2000,'spon cuci bagus':2333,'karet gelang':4833,'kater':2000,
+'adem sari':2021,'vegeta':2667,'bumbu dapur 1000':800,'tambang k':4000,'tali nilon':4000,'saos botol':6000,'masako':417,'royco':417,'ladaku':833,
+'saori':2350,'lem power 4000':2500,'salep kulit badak':8000,'champion':1800,'dancow':3350,'anlene':2700,'milo':2000,'cerelac':1625,
+'energen':1700,'top aren':1100,'teh tarik':2200,'creamy latte':1300,'good day capcin':2050,'torabika capcin':2050,'good day moca':1950,
+'indocaffe':1420,'luwak white':1300,'teh sosro':875,'teh botol sst':833,'teh bendera':917,'teh sariwangi':875,'kapal api 60gr':8250,
+'abc susu':1680,'kapal api mix':1680,'kapal api susu':1700,'kapal api mini':900,'susu saset':1333,'chocolatos':1800,'drink beng beng':1850,
+'kapal api 160 gr':21200,'bango saset':833,'racik':1650,'tepung sasa':2300,'tepung kobe':2000,'charm 500':430,'charm malam':2400,
+'charm isi 2':1250,'mamy poko s/m/l':1600,'mamy pokok xl/xxl':2200,'teh tebu':1500,'soklin liquid':833,'soklin pewangi':833,'rinso cair':833,
+'gentel gen':833,'so soft':833,'molto':833,'downy':833,'shampo 1000':833,'shampo 500':417,'kit shampo':1500,'kit poles':2000,'biosol':417,
+'proclin':833,'vanish':3500,'harvic':1250,'supersol':833,'wipol':833,'citra saset':833,'soffel 500':417,'soffel 1000':833,'kispray':438,
+'rapika saset':438,'gataby rambut':604,'soklin lantai 500':400,'fair lovely cream':4100,'fair lovely':3200,'rexona':2500,'tea jus':175,
+'nutrisari':1200,'super bubur':900,'anget sari':1000,'amh':850,'mie gelas':1300,'ketumbar bubuk':833,'kunyit bubuk':833,'saos saset':600,
+'bon cabe':833,'sambal uleg':1250,'sambal abc':1250,'nutriboosk':5333,'good day botolk':5000,'goldak':2750,'abck':3125,'milkuk':1375,
+'teh kotakk':3125,'mizonek':3333,'pocari bk':6500,'pocari kk':5500,'orange waterk':6875,'sprite cola fantak':3917,'fruiteak':3333,
+'nipis maduk':3333,'floridinak':2417,'isoplusk':2416,'steak':2417,'pucukk':2458,'teh botolk':3333,'aqua tk':1875,'vit tk':1417,
+'lemineral tk':1875,'sanqua tk':1416,'aqua bk':4167,'vit bk':2917,'lemiral bk':4167,'yakult':2000,'cymori':2000,'susu kedelai':1500,
+'pocari klgk':5300,'larutan klgk':5000,'adem sari klgk':6041,'bintang zerok':7000,'root beenrk':6300,'tebsk':6700,'cincau pandak':5000,
+'greensandk':6700,'zodak':5000,'bearbrandk':9700,'tujuh kurmak':9000,'you c 1000k':5500,'kratingdaengk':4900,'larutan anakk':5000,
+'cumory botol':7000,'cymori kotak':5500,'ultra 200k':4375,'ultra 125k':2750,'indomilk kidsk':2450,'frisiaan flag kk':1800,
+'hydro coco kk':5375,'sari kacang hijauk':3500,'minuman 2000k':1375,'minuman 1000k':792,'minuman 500k':271,'puyer 16':750,'taipinsan':3500,
+'anak sumang':833,'bodrexin':417,'napacin':750,'mixagrip':875,'oskadom':875,'antimo':500,'procol':750,'ultra flu':875,'mextril':875,
+'konidin':575,'neozep':875,'bodrex biasa':425,'bodrex panjang':625,'inza':875,'pilkita':2000,'paramex':875,'decolgen':875,'inzana':875,
+'promag':875,'diapet':875,'remacyl':875,'panadol hijau':1300,'panadol merah':1300,'panadol biru':1600,'entrostop':667,'parasetamol':2000,
+'milanta tablet':1100,'ponstan':2000,'super tetra':2000,'fatigon merah':1500,'ctm':1500,'salonpas':833,'koyo cabe':1083,'mainan 2000':1500,
+'kerupuk 1000':800,'kerupuk 2000':1600,'kerupuk 5000':4000,'roti 2000':1500,'roti 3000':2500,'minyak wangi':8000
+};
+
+// --- data (will be loaded from localStorage or seeded)
+let dataRokok = {};
+let dataRokokPrices = {};
+let dataSembako = {};
+let dataSembakoPrices = {};
+
+// state
+let active=''; let items = {}; let prices = {}; let opname = []; let filter='all';
+let newItems = []; // barang baru yang ditambahkan pada sesi ini
+
+// elems
+const introDate = document.getElementById('introDate'); const opDate = document.getElementById('opDate'); introDate.textContent=new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}); opDate.textContent=introDate.textContent;
+const intro = document.getElementById('intro'); const app = document.getElementById('app'); const catR = document.getElementById('catR'); const catS = document.getElementById('catS');
+const title = document.getElementById('title'); const catName = document.getElementById('catName'); const back = document.getElementById('back');
+const search = document.getElementById('search'); const suggest = document.getElementById('suggest'); const sys = document.getElementById('sys'); const price = document.getElementById('price'); const phys = document.getElementById('phys'); const addBtn = document.getElementById('add'); const tbody = document.getElementById('tbody'); const totalMore = document.getElementById('totalMore'); const totalLess = document.getElementById('totalLess'); const grandTotal = document.getElementById('grandTotal');
+const fAll = document.getElementById('fAll'); const fMinus = document.getElementById('fMinus'); const fPlus = document.getElementById('fPlus');
+// new form elems
+const newForm = document.getElementById('newForm'); const newName = document.getElementById('newName'); const newPrice = document.getElementById('newPrice'); const newStock = document.getElementById('newStock'); const addNewBtn = document.getElementById('addNew'); const cancelNewBtn = document.getElementById('cancelNew');
+const tbodyNew = document.getElementById('tbodyNew'); const totalNewAll = document.getElementById('totalNewAll'); const resetAllBtn = document.getElementById('resetAll');
+
+// ---------- persistence helpers ----------
+function saveAll(){
+  try{
+    localStorage.setItem(KEY.rokok, JSON.stringify(dataRokok));
+    localStorage.setItem(KEY.rokokPrices, JSON.stringify(dataRokokPrices));
+    localStorage.setItem(KEY.sembako, JSON.stringify(dataSembako));
+    localStorage.setItem(KEY.sembakoPrices, JSON.stringify(dataSembakoPrices));
+    localStorage.setItem(KEY.opname, JSON.stringify(opname));
+    localStorage.setItem(KEY.newItems, JSON.stringify(newItems));
+  }catch(e){ console.error('Gagal menyimpan ke localStorage', e); }
+}
+
+function loadAll(){
+  try{
+    const r = JSON.parse(localStorage.getItem(KEY.rokok) || 'null');
+    const rp = JSON.parse(localStorage.getItem(KEY.rokokPrices) || 'null');
+    const s = JSON.parse(localStorage.getItem(KEY.sembako) || 'null');
+    const sp = JSON.parse(localStorage.getItem(KEY.sembakoPrices) || 'null');
+    const o = JSON.parse(localStorage.getItem(KEY.opname) || 'null');
+    const n = JSON.parse(localStorage.getItem(KEY.newItems) || 'null');
+
+    // If nothing in localStorage, use seed data
+    if(r && typeof r === 'object') dataRokok = r; else dataRokok = Object.assign({}, SEED_ROKOK);
+    if(rp && typeof rp === 'object') dataRokokPrices = rp; else dataRokokPrices = Object.assign({}, SEED_ROKOK_PRICES);
+    if(s && typeof s === 'object') dataSembako = s; else dataSembako = Object.assign({}, SEED_SEMBAKO);
+    if(sp && typeof sp === 'object') dataSembakoPrices = sp; else dataSembakoPrices = Object.assign({}, SEED_SEMBAKO_PRICES);
+    if(Array.isArray(o)) opname = o; else opname = [];
+    if(Array.isArray(n)) newItems = n; else newItems = [];
+
+    // ensure saved if we seeded
+    saveAll();
+  }catch(e){ console.error('Gagal load dari localStorage', e); dataRokok=Object.assign({}, SEED_ROKOK); dataRokokPrices=Object.assign({}, SEED_ROKOK_PRICES); dataSembako=Object.assign({}, SEED_SEMBAKO); dataSembakoPrices=Object.assign({}, SEED_SEMBAKO_PRICES); opname=[]; newItems=[]; saveAll(); }
+}
+
+function resetAllData(){
+  if(!confirm('Yakin mau reset? Semua data akan hilang dan kembali seperti semula (kosong).')) return;
+  localStorage.removeItem(KEY.rokok); localStorage.removeItem(KEY.rokokPrices); localStorage.removeItem(KEY.sembako); localStorage.removeItem(KEY.sembakoPrices); localStorage.removeItem(KEY.opname); localStorage.removeItem(KEY.newItems);
+  // clear memory and re-seed (you said initial should be prefilled; reset returns to seeded state)
+  dataRokok = Object.assign({}, SEED_ROKOK);
+  dataRokokPrices = Object.assign({}, SEED_ROKOK_PRICES);
+  dataSembako = Object.assign({}, SEED_SEMBAKO);
+  dataSembakoPrices = Object.assign({}, SEED_SEMBAKO_PRICES);
+  opname = []; newItems = [];
+  saveAll();
+  // reset UI
+  app.style.display='none'; intro.style.display='block'; search.value=''; render(); renderNew();
+}
+
+// ---------- UI & logic ----------
+catR.addEventListener('click',()=>openCat('Rokok'));
+catS.addEventListener('click',()=>openCat('Sembako'));
+back.addEventListener('click',()=>{ opname=[]; items={}; prices={}; newItems=[]; saveAll(); app.style.display='none'; intro.style.display='block'; search.value=''; render(); renderNew(); });
+resetAllBtn.addEventListener('click',resetAllData);
+
+function openCat(c){
+  loadAll(); // ensure latest
+  active=c; opname = opname || []; newItems = newItems || [];
+  if(c==='Rokok'){ items=Object.assign({},dataRokok); prices=Object.assign({},dataRokokPrices); title.textContent='ShanuMart — Rokok'; }
+  else { items=Object.assign({},dataSembako); prices=Object.assign({},dataSembakoPrices); title.textContent='ShanuMart — Sembako'; }
+  catName.textContent=active; intro.style.display='none'; app.style.display='block'; search.focus(); render(); renderNew(); }
+
+function updateSuggest(q){ const ql=(q||'').toLowerCase(); if(!ql){ suggest.style.display='none'; suggest.innerHTML=''; hideNewForm(); return; } const taken = new Set(opname.map(r=>r.nama)); const keys = Object.keys(items).filter(k=>k.toLowerCase().includes(ql) && !taken.has(k)).slice(0,80); if(!keys.length){ // show option to add new
+    suggest.style.display='none'; suggest.innerHTML=''; showNewForm(q); return;} suggest.innerHTML = keys.map(k=>`<div data-name="${encodeHtml(k)}">${encodeHtml(k)} <span style="float:right;opacity:.6">S:${items[k]}</span></div>`).join(''); suggest.style.display='block'; hideNewForm(); }
+let tmr=null; search.addEventListener('input',e=>{ clearTimeout(tmr); tmr=setTimeout(()=>updateSuggest(e.target.value),120); });
+
+suggest.addEventListener('click',e=>{ const d=e.target.closest('div'); if(!d) return; const name=d.dataset.name; select(name); suggest.style.display='none'; phys.focus(); });
+search.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const name=search.value.trim(); if(!name) return; let key=null; const taken=new Set(opname.map(r=>r.nama)); if(items.hasOwnProperty(name) && !taken.has(name)) key=name; else { const k2=Object.keys(items).find(k=>k.toLowerCase()===name.toLowerCase() && !taken.has(k)); if(k2) key=k2; else { const k3=Object.keys(items).find(k=>k.toLowerCase().startsWith(name.toLowerCase()) && !taken.has(k)); if(k3) key=k3; } }
+    if(!key){ // not found -> show new item form prefilled with typed name
+      showNewForm(name); return; } select(key); phys.focus(); } });
+
+function select(name){ search.value=name; sys.value=items[name]||0; price.value=prices[name]||0; phys.value=''; phys.focus(); }
+
+function add(){ const name = search.value.trim(); if(!name){ alert('Pilih barang dahulu'); return; } let key = Object.keys(items).find(k=>k.toLowerCase()===name.toLowerCase()) || Object.keys(items).find(k=>k.toLowerCase().startsWith(name.toLowerCase())); if(!key){ alert('Barang tidak ditemukan. Jika ingin menambahkan barang baru, ketik nama lalu tekan Enter.'); return; } const sistem=Number(items[key]||0); const harga=Number(prices[key]||0); const fisik=Number(phys.value||0); const selisih=fisik-sistem; const selisihMoney = selisih * harga; const totalStock = fisik * harga; const idx=opname.findIndex(r=>r.nama===key); if(idx>=0){ opname[idx].sistem=sistem; opname[idx].fisik=fisik; opname[idx].selisih=selisih; opname[idx].selisihMoney=selisihMoney; opname[idx].harga=harga; opname[idx].totalStock=totalStock; opname[idx].waktu=new Date().toISOString(); } else { opname.push({nama:key,sistem, fisik, selisih, selisihMoney, harga, totalStock, waktu:new Date().toISOString()}); }
+  saveAll();
+  search.value=''; sys.value=''; price.value=''; phys.value=''; suggest.style.display='none'; hideNewForm(); search.focus(); render(); }
+addBtn.addEventListener('click',add); phys.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); add(); } });
+
+// new item form handlers
+function showNewForm(name){ newForm.style.display='block'; newName.textContent=name; newPrice.value=''; newStock.value=''; }
+function hideNewForm(){ newForm.style.display='none'; newName.textContent=''; newPrice.value=''; newStock.value=''; }
+cancelNewBtn.addEventListener('click',()=>{ hideNewForm(); search.focus(); });
+addNewBtn.addEventListener('click',()=>{
+  const name = (newName.textContent||'').trim(); if(!name) return; const harga = Number(newPrice.value||0); const stokBaru = Number(newStock.value||0);
+  // add to main data (persist)
+  if(active==='Rokok'){ dataRokok[name]=0; dataRokokPrices[name]=harga; items[name]=0; prices[name]=harga; } else { dataSembako[name]=0; dataSembakoPrices[name]=harga; items[name]=0; prices[name]=harga; }
+  // create new item entry (will be shown in new table)
+  const selisih = stokBaru - 0; const selisihMoney = selisih * harga; const totalStock = stokBaru * harga;
+  newItems.push({nama:name, stokBaru, harga, selisih, selisihMoney, totalStock, waktu:new Date().toISOString()});
+  saveAll();
+  hideNewForm(); search.value=''; renderNew(); render(); search.focus(); });
+
+// render main opname table and totals
+function render(){ tbody.innerHTML=''; let more=0; let less=0; opname.forEach((it,idx)=>{ const diffMoney = Number(it.selisihMoney||0); if(filter==='minus' && diffMoney>=0) return; if(filter==='plus' && diffMoney<=0) return; if(diffMoney>0) more += diffMoney; else if(diffMoney<0) less += Math.abs(diffMoney); const tr=document.createElement('tr'); tr.innerHTML = `<td>${idx+1}</td><td>${encodeHtml(it.nama)}</td><td>${it.sistem}</td><td contenteditable="true" data-idx="${idx}" data-field="fisik">${it.fisik}</td><td>${it.selisih}</td><td>${formatRp(it.selisihMoney)}</td><td>${formatRp(it.harga)}</td><td>${formatRp(it.totalStock)}</td><td><button data-idx="${idx}" class="ghost">Hapus</button></td>`; tbody.appendChild(tr); });
+  // include newItems totals in overall totals (they are always treated as 'plus' because sistem=0)
+  newItems.forEach(it=>{ if(filter==='minus') return; const m = Number(it.selisihMoney||0); if(m>0) more += m; else if(m<0) less += Math.abs(m); });
+  totalMore.textContent = formatRp(more); totalLess.textContent = formatRp(less); grandTotal.textContent = formatRp(more - less); }
+
+// inline edit for opname
+tbody.addEventListener('input',e=>{ const td=e.target.closest('td'); if(!td) return; const idx=td.dataset.idx; const field=td.dataset.field; if(idx==null) return; if(field==='fisik'){ const v=Number(td.textContent.trim()||0); opname[idx].fisik=v; opname[idx].selisih = v - opname[idx].sistem; opname[idx].selisihMoney = opname[idx].selisih * opname[idx].harga; opname[idx].totalStock = v * opname[idx].harga; saveAll(); render(); } });
+
+// delete for opname
+tbody.addEventListener('click',e=>{ const btn=e.target.closest('button'); if(!btn) return; const idx=Number(btn.dataset.idx); if(isNaN(idx)) return; if(confirm('Hapus baris?')){ opname.splice(idx,1); saveAll(); render(); } });
+
+// filters
+fAll.addEventListener('click',()=>{ filter='all'; setFilterButtons(); render(); }); fMinus.addEventListener('click',()=>{ filter='minus'; setFilterButtons(); render(); }); fPlus.addEventListener('click',()=>{ filter='plus'; setFilterButtons(); render(); }); function setFilterButtons(){ fAll.classList.remove('active'); fMinus.classList.remove('active'); fPlus.classList.remove('active'); if(filter==='all') fAll.classList.add('active'); if(filter==='minus') fMinus.classList.add('active'); if(filter==='plus') fPlus.classList.add('active'); }
+
+// new items rendering & actions
+function renderNew(){ tbodyNew.innerHTML=''; let totalNew=0; newItems.forEach((it,idx)=>{ totalNew += Number(it.totalStock||0); const tr=document.createElement('tr'); tr.innerHTML = `<td>${idx+1}</td><td>${encodeHtml(it.nama)}</td><td contenteditable="true" data-new-idx="${idx}" data-new-field="stok">${it.stokBaru}</td><td contenteditable="true" data-new-idx="${idx}" data-new-field="harga">${it.harga}</td><td>${formatRp(it.totalStock)}</td><td><button data-new-idx="${idx}" class="ghost">Hapus</button></td>`; tbodyNew.appendChild(tr); }); totalNewAll.textContent = formatRp(totalNew); }
+
+// inline edit for new items (stok/harga) - updates both newItems and main prices/items
+tbodyNew.addEventListener('input',e=>{ const td=e.target.closest('td'); if(!td) return; const idx=td.dataset.newIdx; const field=td.dataset.newField; if(idx==null) return; const i = Number(idx); if(field==='stok'){ const v=Number(td.textContent.trim()||0); newItems[i].stokBaru = v; newItems[i].selisih = v; newItems[i].selisihMoney = v * newItems[i].harga; newItems[i].totalStock = v * newItems[i].harga; } else if(field==='harga'){ const v=Number(td.textContent.trim()||0); newItems[i].harga = v; newItems[i].selisihMoney = newItems[i].stokBaru * v; newItems[i].totalStock = newItems[i].stokBaru * v; // also update main price storage
+    const name=newItems[i].nama; if(active==='Rokok'){ dataRokokPrices[name]=v; prices[name]=v; } else { dataSembakoPrices[name]=v; prices[name]=v; } }
+  saveAll(); renderNew(); render(); });
+
+// delete for new items - also remove from main data storage
+tbodyNew.addEventListener('click',e=>{ const btn=e.target.closest('button'); if(!btn) return; const idx=Number(btn.dataset.newIdx); if(isNaN(idx)) return; if(confirm('Hapus barang baru? (akan dihapus juga dari data utama)')){ const name=newItems[idx].nama; // remove from main data
+    if(active==='Rokok'){ delete dataRokok[name]; delete dataRokokPrices[name]; delete items[name]; delete prices[name]; } else { delete dataSembako[name]; delete dataSembakoPrices[name]; delete items[name]; delete prices[name]; }
+    newItems.splice(idx,1); saveAll(); renderNew(); render(); } });
+
+// helpers
+function formatRp(n){ if(n==null||n===''||isNaN(Number(n))) return 'Rp 0'; return 'Rp '+Number(n).toLocaleString('id-ID'); }
+function encodeHtml(s){ return (s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+document.addEventListener('click',e=>{ if(!e.target.closest('.list') && !e.target.closest('#search')) suggest.style.display='none'; });
+
+// load data on first run
+loadAll();
+
+</script>
+</body>
+</html>
